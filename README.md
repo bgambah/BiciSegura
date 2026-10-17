@@ -31,8 +31,8 @@ La inseguridad, incluso la percibida, es una de las principales razones por las 
 ```
 bicisegura/
 ├── docs/
-│   ├── Workshop_1.pdf      # Requerimientos e historias de usuario
-│   └── mockups/            # Pantallas de la aplicación
+│   ├── Workshop_1.pdf      
+│   └── Workshop_2.pdf           
 └── README.md
 ```
 
