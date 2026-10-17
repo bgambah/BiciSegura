@@ -2,8 +2,6 @@
 
 **Sistema de planificación y seguridad de rutas para ciclistas en Bogotá.**
 
-Proyecto del curso **Ingeniería de Software II** – Universidad Nacional de Colombia (Bogotá, D.C., 2026).
-
 ## 📌 Descripción
 
 BiciSegura ayuda a los ciclistas de Bogotá a elegir rutas más seguras. La aplicación combina el mapa de ciclorrutas con los reportes de incidentes de la comunidad para calcular rutas, comparar alternativas según su nivel de seguridad y avisar de peligros durante el recorrido.
@@ -52,16 +50,6 @@ bicisegura/
 └── README.md
 ```
 
-> La estructura se ampliará cuando comience la implementación.
-
-## 🛠️ Tecnologías
-
-*Por definir.*
-
-## 🚀 Instalación y ejecución
-
-*Por definir.*
-
 ## 👥 Equipo
 
 - Diego Alejandro Arévalo Guevara
@@ -70,11 +58,4 @@ bicisegura/
 - Juan Carlos Manrique Benavides
 - Johan Alexander Peña Ortiz
 
-**Profesora:** Liliana Marcela Olarte Mesa
 
-## 📚 Referencias
-
-1. Karakaya, Hasenburg y Bermbach – estudio sobre seguridad ciclista y ruteo consciente del peligro.
-2. Castells-Graells, Salahub y Pournaras – estudio sobre accidentes de bicicleta en Zúrich.
-
-*(Las referencias completas están en el Workshop 1.)*
