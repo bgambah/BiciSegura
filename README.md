@@ -26,20 +26,6 @@ La inseguridad, incluso la percibida, es una de las principales razones por las 
 - Gestión de cuentas de usuarios.
 - Tablero de estadísticas del sistema.
 
-## 🖼️ Mockups
-
-Los diseños de las pantallas (11 en total) están en la carpeta [`/docs/mockups`](docs/mockups). Las más importantes son:
-
-| # | Pantalla | Propósito |
-|---|----------|-----------|
-| 01 | Inicio de sesión y registro | Acceso y creación de cuenta |
-| 02 | Planear una ruta | Elegir origen, destino y preferencias |
-| 03 | Comparar alternativas | Escoger entre rutas según tiempo, distancia y seguridad |
-| 04 | Incidentes, filtros y detalle | Ver riesgos en el mapa y confirmar su estado |
-| 05 | Reportar un incidente | Aportar información a la comunidad |
-| 06 | Recorrido activo y alertas | Navegación con avisos en tiempo real |
-| 09 | Administración – Cola de moderación | Revisar y validar reportes |
-
 ## 📂 Estructura del repositorio
 
 ```
