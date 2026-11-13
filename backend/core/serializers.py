@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
-from .models import User, IncidentReport
+from .models import User, IncidentReport, Route, Trip, Bikeway
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -15,10 +15,24 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return User.objects.create_user(**validated_data)
 
 
+class UserSerializer(serializers.ModelSerializer):
+    """Datos del usuario con sesión iniciada (GET /auth/me/)."""
+    reports_count = serializers.SerializerMethodField()
+    trips_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'email', 'role', 'created_at', 'reports_count', 'trips_count']
+
+    def get_reports_count(self, obj):
+        return obj.reports.count()
+
+    def get_trips_count(self, obj):
+        return obj.trips.count()
+
+
 class IncidentReportSerializer(GeoFeatureModelSerializer):
     # SerializerMethodField tolera reportes anónimos (author = None).
-    # Con ReadOnlyField(source='author.full_name') DRF lanzaba SkipField
-    # al intentar leer el nombre de un autor inexistente.
     author_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -36,3 +50,24 @@ class IncidentReportSerializer(GeoFeatureModelSerializer):
 
     def get_author_name(self, obj):
         return obj.author.full_name if obj.author else None
+
+
+class RouteSerializer(GeoFeatureModelSerializer):
+    class Meta:
+        model = Route
+        geo_field = 'path'
+        fields = ['id', 'kind', 'distance_m', 'duration_s', 'safety_index', 'bikeway_pct', 'origin', 'destination']
+
+
+class TripSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trip
+        fields = ['id', 'route', 'status', 'started_at', 'finished_at']
+        read_only_fields = ['id', 'started_at', 'finished_at']
+
+
+class BikewaySerializer(GeoFeatureModelSerializer):
+    class Meta:
+        model = Bikeway
+        geo_field = 'path'
+        fields = ['id', 'name']

@@ -97,3 +97,64 @@ class IncidentReport(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} - {self.state}"
+
+
+# ---------------------------------------------------------------------------
+# Rutas, recorridos, ciclorrutas y votos sobre reportes
+# ---------------------------------------------------------------------------
+from django.conf import settings
+
+
+class ReportVote(models.Model):
+    """Acción de un usuario sobre un reporte: confirmarlo o marcarlo como solucionado."""
+    class Kind(models.TextChoices):
+        CONFIRM = 'confirm', 'Sigue ocurriendo'
+        SOLVE = 'solve', 'Ya se solucionó'
+
+    report = models.ForeignKey(IncidentReport, on_delete=models.CASCADE, related_name='votes')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='votes')
+    kind = models.CharField(max_length=7, choices=Kind.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('report', 'user', 'kind')
+
+
+class Bikeway(models.Model):
+    """Tramo de ciclorruta (se carga con: python manage.py load_bikeways archivo.geojson)."""
+    name = models.CharField(max_length=150, blank=True)
+    path = models.LineStringField(srid=4326)
+
+    def __str__(self):
+        return self.name or f'Ciclorruta {self.pk}'
+
+
+class Route(models.Model):
+    class Kind(models.TextChoices):
+        SAFEST = 'safest', 'Más segura'
+        FASTEST = 'fastest', 'Más rápida'
+        BIKEWAYS = 'bikeways', 'Más ciclorrutas'
+
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    origin = models.PointField(srid=4326)
+    destination = models.PointField(srid=4326)
+    path = models.LineStringField(srid=4326)
+    distance_m = models.IntegerField()
+    duration_s = models.IntegerField()
+    safety_index = models.SmallIntegerField()   # 0 (peligrosa) a 100 (segura)
+    bikeway_pct = models.SmallIntegerField(default=0)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='routes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Trip(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = 'active', 'En marcha'
+        PAUSED = 'paused', 'En pausa'
+        FINISHED = 'finished', 'Finalizado'
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='trips')
+    route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='trips')
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.ACTIVE)
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)

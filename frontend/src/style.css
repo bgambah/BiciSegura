@@ -1,0 +1,53 @@
+:root{--bg:#14111c;--card:#1e1a2b;--line:#2d2840;--acc:#8b5cf6;--sel:#2a2145;--txt:#f3f0ff;--mut:#9a93b3;--ok:#34d399;--warn:#fbbf24;--bad:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:1.5rem;line-height:1.2;margin:.2rem 0 .3rem}
+.page{width:100%;padding:1rem 1rem 6rem;max-width:1300px;margin:0 auto;min-width:0}
+.muted{color:var(--mut);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem}
+.btn{display:block;width:100%;padding:.85rem;border:0;border-radius:12px;background:var(--acc);color:#fff;font:600 1rem inherit;cursor:pointer;margin-top:1rem}
+.btn.ghost{background:var(--card);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input,textarea,select{width:100%;padding:.8rem;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:inherit}
+label{display:block;margin:.9rem 0 .3rem;font-size:.85rem}
+.map{height:260px;border-radius:14px;border:1px solid var(--line);margin-top:1rem}
+.seg{display:flex;gap:4px;background:var(--card);border-radius:12px;padding:4px;margin:1rem 0}
+.seg button{flex:1;padding:.6rem .2rem;border:0;border-radius:9px;background:none;color:var(--mut);font:inherit;cursor:pointer}
+.seg button.on{background:var(--sel);color:var(--txt)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.opt{padding:.7rem .2rem;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--txt);font:inherit;cursor:pointer;text-align:center}
+.opt.on{border-color:var(--acc);background:var(--sel)}
+.opt img{display:block;margin:0 auto .2rem}
+.err{color:var(--bad);font-size:.85rem}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+
+/* Tema oscuro para el mapa: solo las baldosas, los marcadores no cambian */
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.7)}
+
+/* Login */
+.auth{max-width:420px;padding-top:2rem}
+
+/* Dos columnas en pantallas anchas */
+.split>*{margin-top:1rem}
+@media(min-width:900px){
+  .page{padding:2rem}
+  .split{display:grid;grid-template-columns:380px 1fr;gap:1.5rem;align-items:start}
+  .split.rev{grid-template-columns:1fr 340px}
+  .split>*{margin-top:1rem}
+  .map{height:calc(100vh - 11rem);min-height:420px;margin-top:1rem}
+  .auth{padding-top:12vh}
+}
+
+/* Rutas, recorrido, incidentes y perfil */
+h2{font-size:1.1rem;margin:1.4rem 0 .2rem}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.btn.sm{display:inline-block;width:auto;margin-top:.6rem;padding:.55rem .9rem;font-size:.9rem}
+a.btn{text-align:center;text-decoration:none;color:#fff}
+a.btn.ghost{color:var(--txt)}
+.stats{display:flex;gap:1.2rem;margin:.5rem 0}
+.stats>span{display:flex;flex-direction:column}
+.stats b{font-size:1.1rem}
+.rcard{display:block;width:100%;text-align:left;margin-top:.6rem;color:var(--txt);font:inherit;cursor:pointer;text-decoration:none}
+.rcard.on{border-color:var(--acc);background:var(--sel)}
+.tag{font-size:.75rem;padding:.15rem .55rem;border-radius:99px;background:var(--sel);color:var(--mut);margin-left:.4rem}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}

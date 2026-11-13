@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" width="240" height="60" fill="none">
+  <defs>
+    <!-- Fondo oscuro del escudo para que la bicicleta morada destaque -->
+    <linearGradient id="shieldBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2E1065" />
+      <stop offset="100%" stop-color="#130E24" />
+    </linearGradient>
+
+    <!-- Borde morado del escudo -->
+    <linearGradient id="shieldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C084FC" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+    
+    <!-- Morado vibrante para la bicicleta -->
+    <linearGradient id="purpleBike" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#A855F7" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+  </defs>
+
+  <!-- Escudo / Pin de seguridad con interior oscuro y borde morado -->
+  <path d="M28 5L47 12.5V27C47 39.8 39 51.2 28 54.5C17 51.2 9 39.8 9 27V12.5L28 5Z" fill="url(#shieldBg)" stroke="url(#shieldBorder)" stroke-width="1.8" />
+  <path d="M28 8L44 14.5V27C44 38.2 37.1 48.2 28 51.2C18.9 48.2 12 38.2 12 27V14.5L28 8Z" stroke="#A855F7" stroke-width="1" stroke-opacity="0.35" />
+
+  <!-- Ruedas de bicicleta en morado -->
+  <circle cx="19.8" cy="34.5" r="5.2" stroke="url(#purpleBike)" stroke-width="2.4" />
+  <circle cx="36.2" cy="34.5" r="5.2" stroke="url(#purpleBike)" stroke-width="2.4" />
+
+  <!-- Cuadro de bicicleta en morado -->
+  <path d="M19.8 34.5L25.5 25.5H32.5L36.2 34.5M25.5 25.5L28.5 34.5H19.8M31.5 22.5H35" stroke="url(#purpleBike)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Pin/destello superior en morado claro -->
+  <circle cx="28" cy="17.5" r="2.2" fill="#C084FC" />
+
+  <!-- Texto Principal: BiciSegura -->
+  <text x="58" y="34" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, Helvetica, Arial, sans-serif" font-size="23" font-weight="800" letter-spacing="-0.4" fill="#F8FAFC">
+    Bici<tspan fill="#A78BFA">Segura</tspan>
+  </text>
+
+  <!-- Subtítulo: Bogotá con pequeño indicador -->
+  <circle cx="62" cy="46.5" r="2.5" fill="#8B5CF6" />
+  <text x="69" y="50" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="0.5" fill="#94A3B8">
+    Bogotá
+  </text>
+</svg>
