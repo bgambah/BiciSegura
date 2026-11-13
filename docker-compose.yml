@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  db:
+    # Usamos la imagen oficial de PostGIS
+    image: postgis/postgis:15-3.4
+    container_name: bicisegura_db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=bici_admin
+      - POSTGRES_DB=bicisegura_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+
+volumes:
+  postgis_data:
+  
