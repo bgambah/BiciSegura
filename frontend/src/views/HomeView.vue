@@ -13,16 +13,16 @@
           
           <label>Tipo de incidente:</label>
           <select v-model="reportForm.type" required>
-            <option value="THEFT">Robo</option>
-            <option value="ACCIDENT">Accidente</option>
-            <option value="HAZARD">Peligro en la vía / Hueco</option>
+            <option value="theft">Robo</option>
+            <option value="accident">Accidente</option>
+            <option value="pothole">Peligro en la vía / Hueco</option>
           </select>
 
           <label>Severidad:</label>
           <select v-model="reportForm.severity" required>
-            <option value="LOW">Baja</option>
-            <option value="MEDIUM">Media</option>
-            <option value="HIGH">Alta</option>
+            <option value="low">Baja</option>
+            <option value="medium">Media</option>
+            <option value="high">Alta</option>
           </select>
 
           <label>Descripción detallada:</label>
@@ -55,17 +55,47 @@ import shadowUrl from 'leaflet/dist/images/marker-shadow.png'
 
 L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl })
 
+// --- ÍCONOS PERSONALIZADOS POR TIPO DE INCIDENTE ---
+// Para usar tus propias imágenes, reemplaza los archivos de src/assets/markers/
+// (conservando el nombre) o cambia las rutas de import.
+import theftImg from '../assets/markers/theft.svg'
+import accidentImg from '../assets/markers/accident.svg'
+import potholeImg from '../assets/markers/pothole.svg'
+import defaultImg from '../assets/markers/default.svg'
+
+const makeIcon = (url) =>
+  L.icon({
+    iconUrl: url,
+    iconSize: [32, 42],     // tamaño de la imagen en píxeles
+    iconAnchor: [16, 42],   // punta del pin: mitad del ancho, base de la imagen
+    popupAnchor: [0, -38]   // el popup sale justo encima del pin
+  })
+
+const icons = {
+  theft: makeIcon(theftImg),
+  accident: makeIcon(accidentImg),
+  pothole: makeIcon(potholeImg)
+}
+const defaultIcon = makeIcon(defaultImg)
+
+// Etiquetas legibles para el popup
+const typeLabels = { theft: 'Robo', accident: 'Accidente', pothole: 'Peligro / Hueco' }
+const severityLabels = { low: 'Baja', medium: 'Media', high: 'Alta' }
+
+const API_URL = 'http://127.0.0.1:8000/api/reports/'
+
 // --- ESTADO DEL FORMULARIO ---
 const isReporting = ref(false)
 const reportForm = ref({
   lat: null,
   lng: null,
-  type: 'THEFT',
-  severity: 'HIGH',
+  type: 'theft',      // valores en minúscula: deben coincidir con el modelo de Django
+  severity: 'high',
   description: ''
 })
 
-let map = null; // Guardamos la instancia del mapa a nivel global del componente
+let map = null            // instancia del mapa
+let incidentsLayer = null // capa con los incidentes (se reemplaza en cada recarga)
 
 onMounted(async () => {
   map = L.map('map').setView([4.6097, -74.0817], 12)
@@ -89,32 +119,45 @@ onMounted(async () => {
 
 const loadIncidents = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:8000/api/reports/')
+    const response = await axios.get(API_URL)
     const incidentes = response.data.features || []
-    
-    L.geoJSON(incidentes, {
+
+    // Quitamos la capa anterior para no duplicar marcadores
+    if (incidentsLayer) map.removeLayer(incidentsLayer)
+
+    incidentsLayer = L.geoJSON(incidentes, {
+      // Dibuja cada punto con el ícono que corresponde a su tipo
+      pointToLayer: (feature, latlng) =>
+        L.marker(latlng, { icon: icons[feature.properties.type] || defaultIcon }),
       onEachFeature: (feature, layer) => {
         const props = feature.properties
-        layer.bindPopup(`
-          <strong>Tipo:</strong> ${props.type} <br>
-          <strong>Severidad:</strong> ${props.severity} <br>
-          <p>${props.description || 'Sin descripción'}</p>
-        `)
+
+        // Usamos textContent para evitar inyección de HTML desde la descripción
+        const div = document.createElement('div')
+        div.innerHTML =
+          '<strong>Tipo:</strong> <span class="p-type"></span><br>' +
+          '<strong>Severidad:</strong> <span class="p-sev"></span>' +
+          '<p class="p-desc"></p>'
+        div.querySelector('.p-type').textContent = typeLabels[props.type] || props.type
+        div.querySelector('.p-sev').textContent = severityLabels[props.severity] || props.severity
+        div.querySelector('.p-desc').textContent = props.description || 'Sin descripción'
+
+        layer.bindPopup(div)
       }
     }).addTo(map)
   } catch (error) {
-    console.error("Error cargando incidentes:", error)
+    console.error('Error cargando incidentes:', error)
   }
 }
 
 // --- FUNCIÓN PARA ENVIAR EL NUEVO REPORTE ---
 const submitReport = async () => {
-  // Django GeoFeatureModelSerializer exige formato GeoJSON para crear el dato
+  // GeoFeatureModelSerializer exige formato GeoJSON para crear el dato
   const payload = {
-    type: "Feature",
+    type: 'Feature',
     geometry: {
-      type: "Point",
-      coordinates: [reportForm.value.lng, reportForm.value.lat] // IMPORTANTE: En GeoJSON es [Longitud, Latitud]
+      type: 'Point',
+      coordinates: [reportForm.value.lng, reportForm.value.lat] // GeoJSON: [Longitud, Latitud]
     },
     properties: {
       type: reportForm.value.type,
@@ -124,21 +167,20 @@ const submitReport = async () => {
   }
 
   try {
-    // Enviamos los datos al backend
-    await axios.post('http://127.0.0.1:8000/api/reports/', payload)
-    
-    alert("¡Reporte guardado exitosamente!")
-    
+    await axios.post(API_URL, payload)
+
+    alert('¡Reporte guardado exitosamente!')
+
     // Cerramos el modal y limpiamos el formulario
     isReporting.value = false
     reportForm.value.description = ''
 
     // Recargamos el mapa para ver el nuevo marcador
     loadIncidents()
-    
   } catch (error) {
-    console.error("Error creando el reporte:", error)
-    alert("Hubo un error al guardar el reporte. Revisa la consola.")
+    const detalle = error.response?.data || error.message
+    console.error('Error creando el reporte:', detalle)
+    alert('Error al guardar el reporte: ' + JSON.stringify(detalle))
   }
 }
 </script>

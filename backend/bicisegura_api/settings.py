@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 import os
 
@@ -20,13 +21,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
+# Los valores sensibles se leen de variables de entorno.
+# Si no existen, se usan los valores de desarrollo local de abajo.
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&g+p@h=5^c-g9dnl3m94e4vli#2yp=)o1%3b9n5e^o#-$ftf_o'
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-&g+p@h=5^c-g9dnl3m94e4vli#2yp=)o1%3b9n5e^o#-$ftf_o',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+# En producción: DJANGO_ALLOWED_HOSTS="midominio.com,www.midominio.com"
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
+]
 
 
 # Application definition
@@ -38,16 +48,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Habilitar PostGIS y GeoDjango
     'django.contrib.gis',
-    
+
     'rest_framework',
     'rest_framework_gis',
+    'rest_framework_simplejwt',
+    'corsheaders',
     'core',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # debe ir lo más arriba posible
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -83,11 +96,11 @@ WSGI_APPLICATION = 'bicisegura_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'bicisegura_db',
-        'USER': 'postgres',
-        'PASSWORD': 'bici_admin',
-        'HOST': 'localhost',
-        'PORT': '5433',  
+        'NAME': os.environ.get('DB_NAME', 'bicisegura_db'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'bici_admin'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5433'),
     }
 }
 
@@ -113,9 +126,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-co'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Bogota'
 
 USE_I18N = True
 
@@ -131,23 +144,54 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# Imprime los correos (p. ej. recuperación de contraseña) en la consola.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 AUTH_USER_MODEL = 'core.User'
 
+
+# Django REST Framework + JWT
+
+REST_FRAMEWORK = {
+    # Con JWT, request.user queda identificado cuando el frontend envía
+    # el header "Authorization: Bearer <token>".
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    # Por defecto: lectura pública, escritura solo con sesión iniciada.
+    # Las vistas que declaren sus propios permission_classes lo sobrescriben.
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+}
+
+
+# CORS: orígenes del frontend (Vite)
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]
+
+
 # Configuración de librerías espaciales para Windows (Python 3.8+)
 if os.name == 'nt':
-    base_osgeo = r'C:\Users\da412\AppData\Local\Programs\OSGeo4W'
-    
+    # Puedes definir OSGEO4W_ROOT en tu entorno para no dejar rutas personales en el código.
+    base_osgeo = os.environ.get(
+        'OSGEO4W_ROOT',
+        r'C:\Users\da412\AppData\Local\Programs\OSGeo4W',
+    )
+
     os.add_dll_directory(rf'{base_osgeo}\bin')
     os.environ['PROJ_LIB'] = rf'{base_osgeo}\share\proj'
     os.environ['GDAL_DATA'] = rf'{base_osgeo}\share\gdal'
-    
+
     # IMPORTANTE: Revisa en la carpeta bin qué número tiene el archivo gdal.dll
-    # y cámbialo aquí si no es gdal310.dll (ej. gdal312.dll)
+    # y cámbialo aquí si no es gdal313.dll (ej. gdal312.dll)
     GDAL_LIBRARY_PATH = rf'{base_osgeo}\bin\gdal313.dll'
     GEOS_LIBRARY_PATH = rf'{base_osgeo}\bin\geos_c.dll'
