@@ -1,16 +1,18 @@
+import math
 from datetime import timedelta
 
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import LineString, Point, Polygon
 from django.contrib.gis.measure import D
-from django.db.models import F
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets, generics, permissions
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import User, IncidentReport, ReportVote, Route, Trip, Bikeway
+from .models import User, IncidentReport, ReportVote, Route, Trip, Bikeway, VOTE_COOLDOWN
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, IncidentReportSerializer,
     RouteSerializer, TripSerializer, BikewaySerializer,
@@ -74,17 +76,40 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
               .annotate(distance=Distance('location', pt)).order_by('distance'))
         return Response(self.get_serializer(qs, many=True).data)
 
+    def get_serializer_context(self):
+        # Los votos de quien consulta, para mostrar "tu voto" y cuánto falta para votar otra vez
+        ctx = super().get_serializer_context()
+        user = self.request.user
+        ctx['my_votes'] = {v.report_id: v for v in ReportVote.objects.filter(user=user)} if user.is_authenticated else {}
+        return ctx
+
     def _vote(self, request, kind):
+        """Un voto por usuario, reporte y hora: o "sigue ocurriendo" o "ya se solucionó", nunca las dos a la vez."""
         report = self.get_object()
-        _, created = ReportVote.objects.get_or_create(report=report, user=request.user, kind=kind)
-        if not created:
-            return Response({'detail': 'Ya registraste esta acción en este reporte.'}, status=409)
-        field = 'confirmation_count' if kind == ReportVote.Kind.CONFIRM else 'solved_count'
-        IncidentReport.objects.filter(pk=report.pk).update(**{field: F(field) + 1})
-        report.refresh_from_db()
-        if report.solved_count >= SOLVE_THRESHOLD and report.state == IncidentReport.State.ACTIVE:
-            report.state = IncidentReport.State.RESOLVED
-            report.save(update_fields=['state'])
+        with transaction.atomic():
+            # Se bloquea el reporte para que dos peticiones simultáneas no voten dos veces
+            report = IncidentReport.objects.select_for_update().get(pk=report.pk)
+            if report.state != IncidentReport.State.ACTIVE:
+                return Response({'detail': 'Este reporte ya no está activo.'}, status=409)
+            vote = ReportVote.objects.filter(report=report, user=request.user).first()
+            if vote:
+                left = VOTE_COOLDOWN - (timezone.now() - vote.updated_at)
+                if left.total_seconds() > 0:
+                    secs = math.ceil(left.total_seconds())
+                    return Response(
+                        {'detail': f'Ya votaste en este reporte. Podrás volver a votar en {math.ceil(secs / 60)} min.',
+                         'retry_after_s': secs},
+                        status=429, headers={'Retry-After': str(secs)})
+                vote.kind = kind
+                vote.save()   # actualiza la hora del voto
+            else:
+                ReportVote.objects.create(report=report, user=request.user, kind=kind)
+            # Los contadores cuentan usuarios distintos: cada uno tiene un solo voto vigente
+            report.confirmation_count = report.votes.filter(kind=ReportVote.Kind.CONFIRM).count()
+            report.solved_count = report.votes.filter(kind=ReportVote.Kind.SOLVE).count()
+            if report.solved_count >= SOLVE_THRESHOLD:
+                report.state = IncidentReport.State.RESOLVED
+            report.save(update_fields=['confirmation_count', 'solved_count', 'state'])
         return Response(self.get_serializer(report).data)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
@@ -135,7 +160,8 @@ class RouteDetailView(generics.RetrieveAPIView):
 
 
 class TripViewSet(viewsets.ModelViewSet):
-    """POST /api/trips/ inicia; PATCH /api/trips/<id>/ {status} pausa, reanuda o finaliza; GET lista el historial propio."""
+    """POST /api/trips/ inicia; PATCH /api/trips/<id>/ {status} pausa, reanuda o finaliza, y {name} lo renombra;
+    GET lista el historial propio."""
     queryset = Trip.objects.all().order_by('-started_at')
     serializer_class = TripSerializer
     permission_classes = [permissions.AllowAny]  # para pruebas, igual que los reportes
@@ -150,11 +176,28 @@ class TripViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user if self.request.user.is_authenticated else None
-        serializer.save(user=user)
+        serializer.save(user=user, resumed_at=timezone.now())
 
     def perform_update(self, serializer):
-        done = serializer.validated_data.get('status') == Trip.Status.FINISHED
-        serializer.save(finished_at=timezone.now() if done else None)
+        trip = serializer.instance
+        user = self.request.user
+        # Un recorrido con dueño solo lo modifica su dueño (los de invitados siguen abiertos, para pruebas)
+        if trip.user_id and trip.user_id != (user.id if user.is_authenticated else None):
+            raise PermissionDenied('Este recorrido es de otro usuario.')
+        new = serializer.validated_data.get('status')
+        extra = {}
+        # Solo si cambia el estado se tocan los tiempos: renombrar no debe alterarlos
+        if new and new != trip.status:
+            if trip.status == Trip.Status.FINISHED:
+                raise ValidationError({'status': 'Un recorrido finalizado no se puede reabrir.'})
+            now = timezone.now()
+            if trip.status == Trip.Status.ACTIVE:   # se cierra el tramo que venía corriendo
+                extra.update(accumulated_s=trip.elapsed_s(now), resumed_at=None)
+            if new == Trip.Status.ACTIVE:
+                extra['resumed_at'] = now
+            if new == Trip.Status.FINISHED:
+                extra['finished_at'] = now
+        serializer.save(**extra)
 
 
 class UnsafeZonesView(APIView):

@@ -26,5 +26,8 @@ export const STATUS = { active: 'En marcha', paused: 'En pausa', finished: 'Fina
 
 export const kmText = (m) => (m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`)
 export const minText = (s) => `${Math.max(1, Math.round(s / 60))} min`
+// Segundos -> 00:00:00 (cronómetro del recorrido)
+export const clockText = (s) =>
+  [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, '0')).join(':')
 // Color según el índice de seguridad (0 peligrosa, 100 segura)
 export const tone = (i) => (i >= 75 ? 'ok' : i >= 50 ? 'warn' : 'bad')

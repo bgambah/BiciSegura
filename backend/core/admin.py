@@ -38,11 +38,11 @@ class RouteAdmin(admin.ModelAdmin):
 
 @admin.register(Trip)
 class TripAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'route', 'status', 'started_at', 'finished_at')
+    list_display = ('id', 'name', 'user', 'route', 'status', 'started_at', 'finished_at')
     list_filter = ('status',)
 
 
 @admin.register(ReportVote)
 class ReportVoteAdmin(admin.ModelAdmin):
-    list_display = ('id', 'report', 'user', 'kind', 'created_at')
+    list_display = ('id', 'report', 'user', 'kind', 'created_at', 'updated_at')
     list_filter = ('kind',)

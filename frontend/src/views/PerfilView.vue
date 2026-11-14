@@ -21,9 +21,11 @@
 
       <h2>Historial de recorridos</h2>
       <p v-if="loaded && !trips.length" class="muted">Aún no has hecho recorridos. Busca una ruta para empezar.</p>
+      <p v-else-if="trips.length" class="muted">Toca un recorrido para verlo o cambiarle el nombre.</p>
       <router-link v-for="t in trips" :key="t.id" :to="`/recorrido/${t.id}`" class="card rcard">
-        <b>Recorrido {{ t.id }}</b><span class="tag">{{ STATUS[t.status] }}</span>
+        <b>{{ t.name || `Recorrido ${t.id}` }}</b><span class="tag">{{ STATUS[t.status] }}</span>
         <div class="muted">Inicio {{ new Date(t.started_at).toLocaleString('es-CO') }}</div>
+        <div v-if="t.status !== 'active'" class="muted">Duración {{ clockText(t.elapsed_s) }}</div>
         <div v-if="t.finished_at" class="muted">Fin {{ new Date(t.finished_at).toLocaleString('es-CO') }}</div>
       </router-link>
       <router-link to="/login" class="btn ghost">Cerrar sesión</router-link>
@@ -33,7 +35,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { api, errMsg, hasToken, STATUS } from '../lib/api'
+import { api, errMsg, hasToken, STATUS, clockText } from '../lib/api'
 
 const ROLE = { cyclist: 'Ciclista', administrator: 'Administrador' }
 const logged = hasToken()

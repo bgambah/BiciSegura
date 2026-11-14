@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.utils import timezone
@@ -105,8 +107,15 @@ class IncidentReport(models.Model):
 from django.conf import settings
 
 
+VOTE_COOLDOWN = timedelta(hours=1)  # cada usuario puede votar una vez por hora en cada reporte
+
+
 class ReportVote(models.Model):
-    """Acción de un usuario sobre un reporte: confirmarlo o marcarlo como solucionado."""
+    """
+    Voto vigente de un usuario sobre un reporte: "sigue ocurriendo" o "ya se solucionó".
+    Hay uno solo por usuario y reporte (no puede tener las dos opciones a la vez). Pasada
+    una hora puede votar otra vez: el voto se actualiza, así que un usuario cuenta una sola vez.
+    """
     class Kind(models.TextChoices):
         CONFIRM = 'confirm', 'Sigue ocurriendo'
         SOLVE = 'solve', 'Ya se solucionó'
@@ -115,9 +124,10 @@ class ReportVote(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='votes')
     kind = models.CharField(max_length=7, choices=Kind.choices)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)  # hora del último voto (para el límite de 1 hora)
 
     class Meta:
-        unique_together = ('report', 'user', 'kind')
+        constraints = [models.UniqueConstraint(fields=['report', 'user'], name='one_vote_per_user_per_report')]
 
 
 class Bikeway(models.Model):
@@ -155,6 +165,17 @@ class Trip(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='trips')
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='trips')
+    name = models.CharField(max_length=100, blank=True)  # nombre que le pone la persona (vacío = "Recorrido N")
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.ACTIVE)
     started_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    # Cronómetro: segundos en marcha ya cerrados (sin pausas) y desde cuándo corre el tramo activo
+    accumulated_s = models.PositiveIntegerField(default=0)
+    resumed_at = models.DateTimeField(null=True, blank=True)
+
+    def elapsed_s(self, now=None):
+        """Segundos de recorrido sin contar las pausas."""
+        total = self.accumulated_s
+        if self.status == self.Status.ACTIVE:
+            total += int(((now or timezone.now()) - (self.resumed_at or self.started_at)).total_seconds())
+        return max(0, total)

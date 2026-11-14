@@ -27,10 +27,15 @@
             <p>{{ sel.description || 'Sin descripción' }}</p>
             <p class="muted">Reportado {{ new Date(sel.created_at).toLocaleString('es-CO') }}</p>
             <div class="row">
-              <button class="btn ghost sm" :disabled="!logged || busy" @click="vote('confirm')">Sigue ocurriendo ({{ sel.confirmation_count }})</button>
-              <button class="btn ghost sm" :disabled="!logged || busy" @click="vote('solve')">Ya se solucionó ({{ sel.solved_count }})</button>
+              <button class="btn ghost sm" :class="{ chosen: sel.my_vote === 'confirm' }" :disabled="!logged || busy || wait > 0" @click="vote('confirm')">Sigue ocurriendo ({{ sel.confirmation_count }})</button>
+              <button class="btn ghost sm" :class="{ chosen: sel.my_vote === 'solve' }" :disabled="!logged || busy || wait > 0" @click="vote('solve')">Ya se solucionó ({{ sel.solved_count }})</button>
             </div>
             <p v-if="!logged" class="muted">Inicia sesión para confirmar un incidente o marcarlo como solucionado.</p>
+            <p v-else-if="wait > 0" class="muted">
+              {{ sel.my_vote ? `Votaste «${VOTE_LABEL[sel.my_vote]}».` : 'Ya votaste en este reporte.' }}
+              Podrás votar de nuevo en {{ Math.ceil(wait / 60000) }} min.
+            </p>
+            <p v-else class="muted">Puedes votar una opción por hora en cada incidente.</p>
           </div>
           <p v-else class="muted">{{ count }} incidentes activos. Toca un marcador para ver el detalle.</p>
           <router-link to="/reportar" class="btn">Reportar un incidente</router-link>
@@ -49,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { TYPES, SEVERITY, iconFor, createMap, L } from '../lib/map'
 import { api, errMsg, hasToken } from '../lib/api'
 
@@ -57,7 +62,13 @@ const TABS = { inc: 'Incidentes', zonas: 'Zonas inseguras', bici: 'Ciclorrutas' 
 const el = ref(null), tab = ref('inc'), tipo = ref(''), dias = ref('')
 const sel = ref(null), count = ref(0), busy = ref(false), msg = ref(''), empty = ref(false)
 const logged = hasToken()   // confirmar y solucionar exigen sesión
-let map, layer, timer
+let map, layer, timer, clock
+
+// Cada usuario vota una opción por hora en cada incidente: el servidor dice cuántos segundos faltan
+const VOTE_LABEL = { confirm: 'Sigue ocurriendo', solve: 'Ya se solucionó' }
+const now = ref(Date.now()), unlockAt = ref(0)
+const wait = computed(() => Math.max(0, unlockAt.value - now.value))   // milisegundos que faltan
+function lock(secs) { now.value = Date.now(); unlockAt.value = now.value + (secs || 0) * 1000 }
 
 const label = (v) => TYPES.find((t) => t.v === v)?.l || v
 
@@ -79,6 +90,7 @@ async function loadReports() {
       onEachFeature: (f, l) => l.on('click', () => {
         f.properties.id = f.id ?? f.properties.id
         sel.value = f.properties
+        lock(f.properties.vote_wait_s)
         msg.value = ''
       })
     }).addTo(map)
@@ -94,10 +106,12 @@ async function vote(kind) {
       msg.value = 'Con tu voto el incidente quedó como solucionado.'
     } else {
       Object.assign(sel.value, data.properties)
+      lock(data.properties.vote_wait_s)
       msg.value = kind === 'confirm' ? 'Gracias, registramos que sigue ocurriendo.' : 'Gracias, registramos tu voto.'
     }
   } catch (e) {
-    msg.value = errMsg(e)   // por ejemplo, si ya votaste
+    msg.value = errMsg(e)   // por ejemplo, si ya votaste en la última hora
+    if (e.response?.status === 429) lock(e.response.data.retry_after_s)
   } finally {
     busy.value = false
   }
@@ -156,13 +170,15 @@ onMounted(() => {
     clearTimeout(timer)
     timer = setTimeout(loadBikeways, 400)
   })
+  clock = setInterval(() => { now.value = Date.now() }, 15000)
   loadReports()
 })
-onBeforeUnmount(() => { clearTimeout(timer); map?.remove() })
+onBeforeUnmount(() => { clearTimeout(timer); clearInterval(clock); map?.remove() })
 </script>
 
 <style scoped>
 .sev{color:var(--bad);font-size:.8rem;margin-left:.5rem}
+.btn.chosen{border-color:var(--acc);background:var(--sel)}
 .row{margin-top:.2rem}
 .row select{flex:1;min-width:140px}
 </style>
